@@ -927,6 +927,58 @@ box-shadow: 0px 0px 93px 17px rgba(198,247,233,0.81);
 	}
 }
 
+/*for landscape on small phones like moto g*/
+@media all and (max-width: 980px) and (max-height: 460px) and (min-height: 420px) {
+	#first_section {
+		font-size: 240%;
+	}
+	#hashtags_div {
+	height: 30%;
+	}
+	#first_section #tagline{
+	height: 40%;
+	}
+	#earth_div {
+	height: 30%;
+	}
+	#education{
+		font-size: 2.0em;
+	}
+	#education h1{
+		font-size: 1.9em;
+	}
+	.icon {
+		width: 7%;
+	}
+	#education li {
+		display: inline-block;
+		padding-left: unset;
+		width: 49%;
+		padding-bottom: 5%;
+		font-size: 0.97em
+	}
+	#technical_full {
+		font-size: 1.7em;
+	}
+	#technical_full .contents {
+    height: 70%;
+	}
+	#technical_full .inner_bar {
+    -webkit-box-shadow: inset 0px 0px 0px 2.5px rgba(255,255,255,1);
+	-moz-box-shadow: inset 0px 0px 0px 2.5px rgba(255,255,255,1);
+	box-shadow: inset 0px 0px 0px 2.5px rgba(255,255,255,1);
+	}
+	#fourth_section #avatar_div {
+		margin-top: 1%;
+	}
+	#fifth_section {
+		font-size: 1.8em;
+	}
+	.social_icon {
+		width: 9%;
+	}
+}
+
 /*Nexus 5x Landscape*/
 @media all and (max-width: 773px) and (max-height: 435px) and (min-height: 350px) {
 	#first_section {
