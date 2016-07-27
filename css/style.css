@@ -876,7 +876,7 @@ box-shadow: 0px 0px 93px 17px rgba(198,247,233,0.81);
 }
 
 /*For Landscape phones*/
-@media all and (max-width: 650px) and (max-height: 384px) and (min-height: 350px) {
+@media all and (max-width: 650px) and (max-height: 384px) and (min-height: 280px) {
 	#first_section {
 		font-size: 240%;
 	}
