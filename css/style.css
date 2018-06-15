@@ -110,8 +110,8 @@ header h1{
 	font-size: 1.8em;
 	width: 46%;
 	height: 100%;
-	padding-top: 2%;
-	padding-left: 4%;
+	padding-top: 1%;
+	padding-left: 3%;
     float: left;
 }
 
@@ -171,8 +171,8 @@ header h1{
 	font-family: "SF";
 	color: #673632;
 	font-size: 1.8em;
-	padding-top: 2%;
-	padding-right: 4%;
+	padding-top: 1%;
+	padding-right: 3%;
 	height: 100%;
 /*	border-left-color: white;
     border-left-width: medium;
@@ -295,7 +295,7 @@ text-align: right;
 	background-color: #F44336;
 	height: 100%;
 	font-family: "SF";
-	font-size: 2.1em;
+	font-size: 2em;
 }
 
 #fourth_section #about_div {
@@ -363,21 +363,21 @@ text-align: right;
 }
 
 #fourth_section #hash_div {
-	height: 10%;
+	height: 7%;
 	font-family: "Hashtag";
 	text-align: center;
 	color: white;
 	margin: auto;
-	font-size: 1.5em;
+	font-size: 1.3em;
 }
 
 
 
 #resume_div {
-	height: 10%;
+	height: 8%;
 	text-align: center;
 	color: #3a3a3a;
-	font-size: 0.9em;
+	font-size: 0.8em;
 }
 
 
