@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wargame Simulation: DEFCON</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'VT323', monospace;
+            color: #0f0;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* CRT Scanline Effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            box-sizing: border-box;
+            text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .defcon-status {
+            font-size: 3rem;
+            color: #0ff;
+            text-shadow: 0 0 5px #0ff, 0 0 15px #0ff;
+            text-align: right;
+        }
+
+        .defcon-status.level-1 { color: #f00; text-shadow: 0 0 5px #f00, 0 0 15px #f00; animation: blink 1s infinite; }
+        .defcon-status.level-2 { color: #f80; text-shadow: 0 0 5px #f80, 0 0 15px #f80; }
+        .defcon-status.level-3 { color: #ff0; text-shadow: 0 0 5px #ff0, 0 0 15px #ff0; }
+        
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .timeline-container {
+            margin-top: 20px;
+            font-size: 1.8rem;
+        }
+
+        .year-display {
+            font-size: 4rem;
+            margin-bottom: 5px;
+            color: #fff;
+            text-shadow: 0 0 10px #fff;
+        }
+
+        .log-box {
+            align-self: flex-start;
+            width: 400px;
+            max-width: 100%;
+            height: 250px;
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            background: rgba(0, 20, 0, 0.6);
+            padding: 15px;
+            font-size: 1.2rem;
+            overflow-y: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            opacity: 0.8;
+            animation: typeIn 0.1s ease-out;
+        }
+
+        .log-entry.alert {
+            color: #f00;
+            text-shadow: 0 0 5px #f00;
+            font-weight: bold;
+        }
+        
+        .log-entry.warn {
+            color: #ff0;
+            text-shadow: 0 0 5px #ff0;
+        }
+
+        @keyframes typeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 0.8; transform: translateX(0); }
+        }
+
+        /* Screen Glitch Effect for End Game */
+        .glitch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 50;
+            display: none;
+            mix-blend-mode: overlay;
+        }
+
+        @media (max-width: 768px) {
+            #ui-layer { padding: 15px; }
+            .title { font-size: 1.5rem; }
+            .defcon-status { font-size: 2rem; }
+            .year-display { font-size: 2.5rem; }
+            .log-box { width: 100%; height: 150px; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div class="scanlines"></div>
+    <div class="glitch-overlay" id="glitch"></div>
+
+    <div id="ui-layer">
+        <div class="header">
+            <div>
+                <div class="title">W.O.P.R. SIMULATION</div>
+                <div class="title" style="font-size: 1.2rem; color: #08f;">HYPOTHETICAL ESCALATION MODEL V4.2</div>
+                <div class="timeline-container">
+                    <div class="year-display" id="year-disp">2026.00</div>
+                    <div id="phase-disp">PHASE: REGIONAL CONFLICT</div>
+                </div>
+            </div>
+            <div class="defcon-status" id="defcon-disp">DEFCON 4</div>
+        </div>
+
+        <div class="log-box" id="log-container">
+            <!-- Logs appear here -->
+        </div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- DATA & CONFIG ---
+        const LOCATIONS = {
+            'Washington': { lat: 38.9072, lon: -77.0369 },
+            'Tehran': { lat: 35.6892, lon: 51.3890 },
+            'TelAviv': { lat: 32.0853, lon: 34.7818 },
+            'Moscow': { lat: 55.7558, lon: 37.6173 },
+            'Beijing': { lat: 39.9042, lon: 116.4074 },
+            'London': { lat: 51.5074, lon: -0.1278 },
+            'Paris': { lat: 48.8566, lon: 2.3522 },
+            'Riyadh': { lat: 24.7136, lon: 46.6753 },
+            'Dubai': { lat: 25.2048, lon: 55.2708 },
+            'NewDelhi': { lat: 28.6139, lon: 77.2090 },
+            'Incirlik': { lat: 37.0019, lon: 35.3250 },
+            'Pyongyang': { lat: 39.0392, lon: 125.7625 },
+            'Guam': { lat: 13.4443, lon: 144.7937 },
+            'Hawaii': { lat: 21.3069, lon: -157.8583 }
+        };
+
+        const TIMELINE_EVENTS = [
+            {
+                year: 2026.1,
+                logs: ["INITIATING HYPOTHETICAL ESCALATION MODEL...", "ESTABLISHING BASELINE: OPERATION EPIC FURY", "WARNING: REGIONAL CONFLICT DETECTED"],
+                defcon: 4,
+                phase: "REGIONAL IGNITION",
+                strikes: [
+                    { from: 'TelAviv', to: 'Tehran', count: 3, type: 'tactical' },
+                    { from: 'Washington', to: 'Tehran', count: 2, type: 'tactical' },
+                    { from: 'Tehran', to: 'TelAviv', count: 4, type: 'tactical' },
+                    { from: 'Tehran', to: 'Dubai', count: 2, type: 'tactical' }
+                ]
+            },
+            {
+                year: 2027.0,
+                logs: ["ECONOMIC CHOKEPOINT DETECTED", "STRAIT OF HORMUZ BLOCKADE ACTIVE", "U.S. FIFTH FLEET ENGAGED"],
+                defcon: 3,
+                phase: "THEATER ESCALATION",
+                strikes: [
+                    { from: 'Tehran', to: 'Riyadh', count: 5, type: 'tactical' },
+                    { from: 'Washington', to: 'Tehran', count: 6, type: 'strategic' },
+                    { from: 'Incirlik', to: 'Tehran', count: 3, type: 'tactical' },
+                    { from: 'Tehran', to: 'Incirlik', count: 2, type: 'tactical' }
+                ]
+            },
+            {
+                year: 2028.2,
+                logs: ["GLOBAL COALITIONS MOBILIZING", "NATO ARTICLE 5 CONSIDERATIONS IN PROGRESS", "EASTERN ALLIANCES SUPPLYING PROXIES"],
+                defcon: 3,
+                phase: "SUPERPOWER PROXY WAR",
+                strikes: [
+                    { from: 'Moscow', to: 'Tehran', count: 2, type: 'supply' }, // Abstract lines
+                    { from: 'Beijing', to: 'Tehran', count: 2, type: 'supply' },
+                    { from: 'London', to: 'Riyadh', count: 2, type: 'supply' },
+                    { from: 'Paris', to: 'TelAviv', count: 1, type: 'supply' },
+                    { from: 'Tehran', to: 'TelAviv', count: 8, type: 'tactical' }
+                ]
+            },
+            {
+                year: 2029.1,
+                logs: ["CRITICAL ESCALATION: DIRECT ENGAGEMENT AUTHORIZED", "STRATEGIC ASSETS TARGETED", "THREAT LEVEL MAXIMIZED"],
+                defcon: 2,
+                phase: "CONTINENTAL STRIKES",
+                strikes: [
+                    { from: 'Moscow', to: 'London', count: 1, type: 'strategic' },
+                    { from: 'Washington', to: 'Moscow', count: 1, type: 'strategic' },
+                    { from: 'Tehran', to: 'Paris', count: 1, type: 'strategic' },
+                    { from: 'Beijing', to: 'Guam', count: 3, type: 'tactical' }
+                ]
+            },
+            {
+                year: 2029.8,
+                logs: ["WARNING: MASS ICBM LAUNCH DETECTED", "ALL STRATEGIC COMMANDS RESPONDING", "MUTUALLY ASSURED DESTRUCTION PROTOCOLS ACTIVE"],
+                defcon: 1,
+                phase: "GLOBAL THERMONUCLEAR WAR",
+                strikes: [
+                    { from: 'Washington', to: 'Moscow', count: 10, type: 'nuclear' },
+                    { from: 'Moscow', to: 'Washington', count: 10, type: 'nuclear' },
+                    { from: 'Washington', to: 'Beijing', count: 8, type: 'nuclear' },
+                    { from: 'Beijing', to: 'Washington', count: 8, type: 'nuclear' },
+                    { from: 'Moscow', to: 'London', count: 5, type: 'nuclear' },
+                    { from: 'Moscow', to: 'Paris', count: 4, type: 'nuclear' },
+                    { from: 'TelAviv', to: 'Tehran', count: 5, type: 'nuclear' },
+                    { from: 'Pyongyang', to: 'Hawaii', count: 2, type: 'nuclear' }
+                ]
+            },
+            {
+                year: 2030.5,
+                logs: ["SIGNAL LOST.", "...", "SYSTEM FAILURE."],
+                defcon: 1,
+                phase: "TERMINAL",
+                strikes: []
+            }
+        ];
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        // Add faint ambient background
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 250;
+        camera.position.y = 50;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- GLOBE GENERATION ---
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        const radius = 100;
+        
+        // Solid black sphere to occlude back-face lines
+        const solidGeo = new THREE.SphereGeometry(radius * 0.99, 32, 32);
+        const solidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const solidEarth = new THREE.Mesh(solidGeo, solidMat);
+        earthGroup.add(solidEarth);
+
+        // Cyan Wireframe Earth
+        const wireGeo = new THREE.SphereGeometry(radius, 32, 32);
+        const wireMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.15 });
+        const wireEarth = new THREE.LineSegments(new THREE.WireframeGeometry(wireGeo), wireMat);
+        earthGroup.add(wireEarth);
+
+        // Marker Dots
+        const markers = {};
+        const markerGeo = new THREE.SphereGeometry(1.5, 8, 8);
+        const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+        function latLongToVector3(lat, lon, r) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const x = -(r * Math.sin(phi) * Math.cos(theta));
+            const z = (r * Math.sin(phi) * Math.sin(theta));
+            const y = (r * Math.cos(phi));
+            return new THREE.Vector3(x, y, z);
+        }
+
+        for (const [name, coords] of Object.entries(LOCATIONS)) {
+            const pos = latLongToVector3(coords.lat, coords.lon, radius);
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.copy(pos);
+            earthGroup.add(marker);
+            markers[name] = pos;
+        }
+
+        // --- ANIMATION / VFX ENTITIES ---
+        const activeMissiles = [];
+        const activeExplosions = [];
+
+        function createMissileArc(startVec, endVec, type) {
+            // Determine styling based on type
+            let color = 0xff0000; // default red
+            let arcHeight = 30;
+            let speed = 0.01;
+
+            if (type === 'supply') { color = 0x00ff00; arcHeight = 20; speed = 0.005; }
+            if (type === 'strategic') { color = 0xffaa00; arcHeight = 60; speed = 0.015; }
+            if (type === 'nuclear') { color = 0xffffff; arcHeight = 100; speed = 0.02; }
+
+            // Calculate midpoint and elevate it for the arc
+            const distance = startVec.distanceTo(endVec);
+            const midPoint = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+            midPoint.normalize().multiplyScalar(radius + arcHeight + (distance * 0.2));
+
+            const curve = new THREE.QuadraticBezierCurve3(startVec, midPoint, endVec);
+            const points = curve.getPoints(50);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: color, 
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const line = new THREE.Line(geometry, material);
+            // Hide initially, will animate draw range
+            line.geometry.setDrawRange(0, 0);
+            earthGroup.add(line);
+
+            activeMissiles.push({
+                line: line,
+                progress: 0,
+                speed: speed,
+                endVec: endVec,
+                color: color,
+                type: type
+            });
+        }
+
+        function createExplosion(pos, color, type) {
+            const size = type === 'nuclear' ? 15 : (type === 'strategic' ? 8 : 4);
+            const geometry = new THREE.RingGeometry(0.1, size, 32);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: color, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+            const ring = new THREE.Mesh(geometry, material);
+            
+            // Orient to face out from sphere
+            ring.position.copy(pos);
+            ring.lookAt(new THREE.Vector3(0,0,0));
+
+            earthGroup.add(ring);
+            activeExplosions.push({ mesh: ring, life: 1.0, decay: 0.02 });
+        }
+
+        // --- SIMULATION STATE ---
+        let currentYear = 2026.0;
+        let timeSpeed = 0.003; // Realtime years per frame
+        let currentEventIndex = 0;
+        let isSimulationActive = true;
+
+        // UI Elements
+        const uiYear = document.getElementById('year-disp');
+        const uiPhase = document.getElementById('phase-disp');
+        const uiDefcon = document.getElementById('defcon-disp');
+        const uiLogs = document.getElementById('log-container');
+        const glitchScreen = document.getElementById('glitch');
+
+        function addLog(msg, type = 'normal') {
+            const el = document.createElement('div');
+            el.className = `log-entry ${type}`;
+            el.innerText = `[${currentYear.toFixed(2)}] ${msg}`;
+            uiLogs.appendChild(el);
+            // Auto scroll
+            uiLogs.scrollTop = uiLogs.scrollHeight;
+            // Keep max logs
+            if (uiLogs.children.length > 8) {
+                uiLogs.removeChild(uiLogs.firstChild);
+            }
+        }
+
+        function triggerEvent(event) {
+            uiPhase.innerText = `PHASE: ${event.phase}`;
+            
+            // Update DEFCON UI
+            uiDefcon.innerText = `DEFCON ${event.defcon}`;
+            uiDefcon.className = `defcon-status level-${event.defcon}`;
+
+            // Add logs sequentially
+            let delay = 0;
+            event.logs.forEach(log => {
+                setTimeout(() => {
+                    let logType = 'normal';
+                    if(event.defcon <= 2) logType = 'alert';
+                    else if(event.defcon == 3) logType = 'warn';
+                    addLog(log, logType);
+                }, delay);
+                delay += 800;
+            });
+
+            // Trigger Strikes with slight randomization
+            event.strikes.forEach(strike => {
+                const startVec = markers[strike.from];
+                const endVec = markers[strike.to];
+                if (!startVec || !endVec) return;
+
+                for (let i = 0; i < strike.count; i++) {
+                    setTimeout(() => {
+                        createMissileArc(startVec, endVec, strike.type);
+                    }, Math.random() * 3000 + delay);
+                }
+            });
+
+            // Terminal state
+            if (event.phase === "TERMINAL") {
+                isSimulationActive = false;
+                setTimeout(() => {
+                    glitchScreen.style.display = 'block';
+                    setInterval(() => {
+                        glitchScreen.style.background = `rgba(255, 255, 255, ${Math.random() * 0.2})`;
+                        document.body.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+                    }, 50);
+                }, 3000);
+            }
+        }
+
+        // Target rotation for camera to focus on action
+        let targetRotationY = Math.PI / 4; // Start looking at Middle East
+        let targetRotationX = 0.2;
+
+        // --- RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isSimulationActive) {
+                // Advance Time
+                currentYear += timeSpeed;
+                uiYear.innerText = currentYear.toFixed(2);
+
+                // Rotate Globe slowly
+                earthGroup.rotation.y += 0.001;
+
+                // Check Events
+                if (currentEventIndex < TIMELINE_EVENTS.length) {
+                    const nextEvent = TIMELINE_EVENTS[currentEventIndex];
+                    if (currentYear >= nextEvent.year) {
+                        triggerEvent(nextEvent);
+                        currentEventIndex++;
+                        
+                        // Shift focus
+                        if(nextEvent.defcon === 1) {
+                            timeSpeed = 0.001; // slow down for dramatic effect
+                        }
+                    }
+                }
+            }
+
+            // Update Missiles
+            for (let i = activeMissiles.length - 1; i >= 0; i--) {
+                const m = activeMissiles[i];
+                m.progress += m.speed;
+                
+                // Draw line incrementally
+                const pointCount = 50;
+                const drawCount = Math.floor(m.progress * pointCount);
+                m.line.geometry.setDrawRange(0, drawCount);
+
+                if (m.progress >= 1.0) {
+                    // Impact
+                    earthGroup.remove(m.line);
+                    createExplosion(m.endVec, m.color, m.type);
+                    activeMissiles.splice(i, 1);
+                }
+            }
+
+            // Update Explosions
+            for (let i = activeExplosions.length - 1; i >= 0; i--) {
+                const e = activeExplosions[i];
+                e.life -= e.decay;
+                e.mesh.scale.set(1 + (1-e.life)*2, 1 + (1-e.life)*2, 1);
+                e.mesh.material.opacity = e.life;
+
+                if (e.life <= 0) {
+                    earthGroup.remove(e.mesh);
+                    activeExplosions.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        addLog("SYSTEM BOOT SEQUENCE INITIATED...");
+        setTimeout(() => animate(), 1000);
+
+    </script>
+</body>
+</html>
+
